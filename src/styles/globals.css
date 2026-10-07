@@ -1,0 +1,211 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+    
+    /* Clean, high-contrast industrial light theme */
+    --background: 215 25% 96%;        /* #f1f5f9 clean cool industrial slate */
+    --foreground: 222 47% 11%;        /* #0f172a deep carbon */
+    --card: 0 0% 100%;                /* #ffffff pure solid white */
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 201 96% 36%;           /* #0284c7 Precision Cyan */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 20% 92%;         /* #e2e8f0 metallic slate */
+    --secondary-foreground: 222 47% 15%;
+    --muted: 215 20% 93%;             /* #e6ecf2 */
+    --muted-foreground: 215 16% 43%;  /* #5f7188 */
+    --accent: 38 92% 50%;             /* #f59e0b Safety Amber */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 354 70% 54%;       /* #ef4444 Rejection Crimson */
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 20% 84%;            /* #cbd5e1 crisp distinct border */
+    --input: 215 20% 86%;
+    --ring: 201 96% 36%;
+
+    --sidebar: 0 0% 100%;             /* Clean white sidebar */
+    --sidebar-foreground: 222 47% 15%;
+    --sidebar-border: 215 20% 84%;
+    --sidebar-accent: 201 96% 36%;
+    --sidebar-accent-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    /* Ultra-premium, high-contrast industrial dark control room theme */
+    --background: 224 35% 7%;         /* #090e17 deep obsidian floor */
+    --foreground: 210 40% 98%;        /* #f8fafc crisp readable white */
+    --card: 224 28% 12%;              /* #131b2e distinctly elevated solid carbon surface */
+    --card-foreground: 210 40% 98%;
+    --popover: 224 28% 12%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 199 89% 48%;           /* #0ea5e9 Electric Cyan */
+    --primary-foreground: 224 35% 7%;
+    --secondary: 224 20% 18%;         /* #1d273b solid secondary surface */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 224 22% 16%;             /* #182234 solid muted surface */
+    --muted-foreground: 215 20% 68%;  /* #99a8bd clear slate */
+    --accent: 38 92% 50%;             /* #f59e0b High-vis Safety Amber */
+    --accent-foreground: 224 35% 7%;
+    --destructive: 354 70% 54%;       /* #ef4444 Crimson */
+    --destructive-foreground: 210 40% 98%;
+    --border: 224 20% 22%;            /* #233047 sharp, visible borders */
+    --input: 224 20% 25%;
+    --ring: 199 89% 48%;
+
+    --sidebar: 224 35% 8%;            /* #0b111c ultra-deep rail */
+    --sidebar-foreground: 210 40% 95%;
+    --sidebar-border: 224 20% 18%;
+    --sidebar-accent: 199 89% 48%;
+    --sidebar-accent-foreground: 0 0% 100%;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  code, pre, kbd {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  /* Custom engineered industrial scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
+}
+
+@layer components {
+  /* Solid Floating Industrial Card with distinct elevation */
+  .floating-card {
+    @apply bg-card text-card-foreground border border-border rounded-xl transition-all duration-200;
+    box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.05), 0 1px 3px 0 rgba(15, 23, 42, 0.03);
+  }
+
+  .dark .floating-card {
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.45), 0 0 0 1px hsl(var(--border));
+  }
+
+  .floating-card:hover {
+    box-shadow: 0 6px 18px -4px rgba(15, 23, 42, 0.08), 0 0 0 1px hsl(var(--primary) / 0.3);
+    transform: translateY(-2px);
+  }
+
+  .dark .floating-card:hover {
+    box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.6), 0 0 0 1px hsl(var(--primary) / 0.4);
+    transform: translateY(-2px);
+  }
+
+  /* Clean Translucent Blurry Modal Overlay (no heavy dark cover) */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/25 dark:bg-black/40 backdrop-blur-md animate-fade-in;
+  }
+
+  .modal-container {
+    @apply w-full bg-card text-card-foreground border border-border rounded-2xl overflow-hidden relative z-10 max-h-[92vh] flex flex-col cursor-default;
+    box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.15), 0 0 0 1px hsl(var(--border));
+  }
+
+  .dark .modal-container {
+    box-shadow: 0 25px 70px -10px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+
+  /* Slide-over Inspection Panel & Backdrop */
+  .slideover-backdrop {
+    @apply fixed inset-0 z-40 bg-slate-950/25 dark:bg-black/40 backdrop-blur-md transition-opacity animate-fade-in cursor-pointer;
+  }
+
+  .slideover-panel {
+    @apply fixed top-0 bottom-0 right-0 z-50 bg-card text-card-foreground border-l border-border flex flex-col;
+    box-shadow: -15px 0 35px -10px rgba(15, 23, 42, 0.12);
+  }
+
+  .dark .slideover-panel {
+    box-shadow: -20px 0 60px -10px rgba(0, 0, 0, 0.9);
+  }
+
+  /* Form Elements */
+  .forge-input {
+    @apply w-full px-3 py-2 text-xs bg-muted/60 border border-input rounded-lg text-foreground placeholder:text-muted-foreground transition-all duration-150;
+  }
+
+  .forge-input:focus {
+    @apply outline-none border-primary ring-2 ring-primary/20 bg-card;
+  }
+
+  .forge-select {
+    @apply w-full px-3 py-2 text-xs bg-muted/60 border border-input rounded-lg text-foreground transition-all duration-150;
+  }
+
+  .forge-select:focus {
+    @apply outline-none border-primary ring-2 ring-primary/20 bg-card;
+  }
+
+  /* Action Buttons */
+  .btn-forge-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-xs shadow-md transition-all duration-150 active:scale-[0.98];
+  }
+
+  .btn-forge-primary:hover {
+    @apply brightness-110 shadow-primary/25 shadow-lg -translate-y-0.5;
+  }
+
+  .btn-forge-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-secondary text-secondary-foreground font-semibold text-xs border border-border shadow-xs transition-all duration-150 active:scale-[0.98];
+  }
+
+  .btn-forge-secondary:hover {
+    @apply bg-muted/80 text-foreground border-primary/30;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-in {
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
