@@ -6,23 +6,23 @@ import {
   AlertTriangle, 
   ArrowUpRight, 
   TrendingUp, 
-  Clock, 
-  CheckCircle2, 
   RefreshCw,
-  Plus,
-  ArrowRight,
-  ShieldAlert,
-  Flame,
-  Zap,
-  Activity,
-  ArrowDownLeft,
-  ChevronRight,
-  Sparkles
+  Plus, 
+  ArrowRight, 
+  ShieldAlert, 
+  Flame, 
+  Zap, 
+  Activity, 
+  ChevronRight, 
+  Sparkles,
+  Cpu,
+  Bot
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { forgeflowApi } from '../../api/forgeflowApi';
 import type { OperationsTelemetry, WorkOrder } from '../../types/forgeflow.types';
 import { useForgeflowStore } from '../../store/useForgeflowStore';
+import { generateShiftInsights, ShiftInsightsResult } from '../../api/forgeAiService';
 
 export const OperationsTelemetryView: React.FC = () => {
   const [telemetry, setTelemetry] = useState<OperationsTelemetry | null>(null);
@@ -30,8 +30,12 @@ export const OperationsTelemetryView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // ForgeAI Predictive Shift Insights State
+  const [insightsResult, setInsightsResult] = useState<ShiftInsightsResult | null>(null);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+
   const navigate = useNavigate();
-  const { setNewWorkOrderOpen, setLogMovementOpen } = useForgeflowStore();
+  const { setNewWorkOrderOpen } = useForgeflowStore();
 
   const loadData = async () => {
     setIsRefreshing(true);
@@ -42,11 +46,26 @@ export const OperationsTelemetryView: React.FC = () => {
       ]);
       setTelemetry(tData);
       setCriticalOrders(woData.filter(o => o.status !== 'FULFILLED' && o.status !== 'CANCELLED'));
+
+      // Automatically generate ForgeAI shift insights using the live telemetry
+      loadAiInsights(tData);
     } catch (err) {
       console.error('Failed to load telemetry:', err);
     } finally {
       setLoading(false);
       setIsRefreshing(false);
+    }
+  };
+
+  const loadAiInsights = async (tData?: OperationsTelemetry | null) => {
+    setIsGeneratingInsights(true);
+    try {
+      const res = await generateShiftInsights(tData || telemetry || undefined);
+      setInsightsResult(res);
+    } catch (err) {
+      console.error('Failed to generate shift insights:', err);
+    } finally {
+      setIsGeneratingInsights(false);
     }
   };
 
@@ -65,6 +84,29 @@ export const OperationsTelemetryView: React.FC = () => {
       </div>
     );
   }
+
+  const getSeverityStyle = (sev: string) => {
+    switch (sev) {
+      case 'CRITICAL':
+        return {
+          border: 'border-rose-500/40 hover:border-rose-500/60',
+          badge: 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30',
+          dot: 'bg-rose-500'
+        };
+      case 'WARN':
+        return {
+          border: 'border-amber-500/40 hover:border-amber-500/60',
+          badge: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
+          dot: 'bg-amber-500'
+        };
+      default:
+        return {
+          border: 'border-cyan-500/40 hover:border-cyan-500/60',
+          badge: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/30',
+          dot: 'bg-cyan-500'
+        };
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in pb-8">
@@ -246,6 +288,107 @@ export const OperationsTelemetryView: React.FC = () => {
               ₹{(Number(telemetry?.financialFlow.outstandingReceivablesSum || 0) / 100000).toFixed(1)}L
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* FEATURE 3: ForgeAI Shift Intelligence Widget */}
+      <div className="bg-card border border-border/90 rounded-2xl p-4 sm:p-5 shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-primary to-cyan-500" />
+        
+        {/* Widget Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-border/70 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500/20 via-primary/20 to-cyan-500/20 border border-border text-primary flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-extrabold text-foreground tracking-tight flex items-center gap-1.5 font-mono">
+                  FORGE<span className="text-primary font-sans font-bold">AI</span> SHIFT INTELLIGENCE
+                </h2>
+                {insightsResult?.meta.mode === 'LIVE_AI' ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Gemini Live
+                  </span>
+                ) : (
+                  <span 
+                    title="Running local heuristic engine (zero external downtime)"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+                  >
+                    <Cpu className="w-3 h-3" />
+                    Deterministic Heuristic Engine
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Autonomous shopfloor risk assessment, inventory buffer monitoring, and throughput guidance
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {insightsResult?.meta && (
+              <span className="text-[10px] font-mono text-muted-foreground hidden lg:inline">
+                Analyzed in {insightsResult.meta.latencyMs}ms
+              </span>
+            )}
+            <button
+              onClick={() => loadAiInsights()}
+              disabled={isGeneratingInsights}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary hover:bg-muted text-foreground border border-border text-xs font-semibold shadow-xs transition-all active:scale-95"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingInsights ? 'animate-spin text-primary' : ''}`} />
+              <span>{isGeneratingInsights ? 'Analyzing...' : 'Refresh Analysis'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 3 Prioritized Alert Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          {insightsResult?.insights.map((insight) => {
+            const style = getSeverityStyle(insight.severity);
+            return (
+              <div
+                key={insight.id}
+                className={`p-4 rounded-xl bg-muted/30 border ${style.border} transition-all duration-200 flex flex-col justify-between space-y-3 group hover:bg-muted/50`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-bold flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${style.dot}`} />
+                      {insight.category.replace(/_/g, ' ')}
+                    </span>
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${style.badge}`}>
+                      {insight.severity}
+                    </span>
+                  </div>
+
+                  <h3 className="text-xs font-bold text-foreground leading-snug font-sans group-hover:text-primary transition-colors">
+                    {insight.title}
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-1.5">
+                    {insight.description}
+                  </p>
+                </div>
+
+                <div className="pt-2.5 border-t border-border/50">
+                  <div className="text-[10px] font-mono font-bold text-cyan-700 dark:text-cyan-300 mb-2">
+                    Action: <span className="font-sans font-medium text-foreground/90">{insight.actionableStep}</span>
+                  </div>
+                  {insight.targetPath && (
+                    <button
+                      onClick={() => navigate(insight.targetPath!)}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-card hover:bg-muted border border-border/80 text-[11px] font-mono text-primary font-semibold transition-colors active:scale-98"
+                    >
+                      <span>Take Operational Action</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

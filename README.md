@@ -4,6 +4,52 @@ ForgeFlow Frontend is an enterprise-grade shopfloor console engineered for fabri
 
 ---
 
+## 🤖 ForgeAI Intelligence Layer
+
+ForgeFlow integrates **ForgeAI**, a production-grade industrial AI intelligence layer that bridges real-time shopfloor telemetry with Google Gemini's advanced reasoning models, reinforced by an intelligent deterministic heuristic fallback engine.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        ForgeFlow React Console                         │
+│   Zustand Store (Telemetry, Operators, Active Work Orders, SKUs, RMAs) │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ Live Context Injection
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                       ForgeAI Service Layer                            │
+│                    (src/api/forgeAiService.ts)                         │
+└───────────────────┬────────────────────────────────┬───────────────────┘
+                    │                                │
+      [Key Valid & Online (<6s)]       [Missing Key, Offline, Timeout >6s]
+                    ▼                                ▼
+┌──────────────────────────────────────┐  ┌──────────────────────────────┐
+│       Google Gemini Cloud AI         │  │   Deterministic Heuristic    │
+│    gemini-2.5-flash / gemini-flash   │  │       Fallback Engine        │
+│  (Deep metallurgical & MES insights) │  │  (Zero-downtime viva demos)  │
+└──────────────────────────────────────┘  └──────────────────────────────┘
+```
+
+### 1. Live Store Context Injection
+Instead of relying on isolated or static prompts, ForgeAI directly queries the live Zustand state (`useForgeflowStore`) and synchronized backend APIs (`forgeflowApi`). Every query injects:
+- **Active Operator Persona**: Name, badge ID, department, and clearance level (e.g., Vikram Singhania - Plant Manager or Pooja Mehta - Quality Inspector).
+- **Floor Sequencing Metrics**: Work orders in queue, staged batches, critical expedites, and completion percentages.
+- **Inventory Buffer Reserves**: Real-time stock counts against safety alert thresholds (`min_threshold_alert`).
+- **Active Quarantine RMAs**: Open discrepancy reports, metallurgical failure codes, and credit claims.
+
+### 2. Core Industrial AI Modules
+
+| Module | Location | Description |
+|---|---|---|
+| **Shopfloor Copilot Drawer** | `src/components/ai/ForgeAiCopilotDrawer.tsx` | Frosted-glass slide-over assistant with role-aware greetings, 4 clickable quick-prompt chips (*Safety buffers*, *Open RMAs*, *Shift handover*, *Bottlenecks*), markdown rendering, and 1-click operational routing. |
+| **Quality Root-Cause & CAPA Analyzer** | `src/pages/returns/QualityRmaView.tsx` | Metallurgical and dimensional discrepancy engine that returns probable mechanical/chemical root causes, severity ratings (`LOW` to `CRITICAL`), confidence scores, and a 1-click **"Apply to RMA Form"** CAPA directive button. |
+| **Predictive Shift Insights Widget** | `src/pages/dashboard/OperationsTelemetryView.tsx` | Proactive dashboard card generating 3 prioritized operational warnings on mount (*Inventory Buffer Risk*, *Quality Quarantine Alert*, *Throughput Optimization Tip*). |
+
+### 3. Dual-Mode Execution & Air-Gapped Zero-Downtime Fallback
+- **Mode 1: `LIVE_AI` (Google Gemini REST API)**: Calls `gemini-2.5-flash` or `gemini-flash-latest` via lightweight `fetch` with strict 6-second `AbortController` timeouts.
+- **Mode 2: `OFFLINE_HEURISTIC_FALLBACK` (Deterministic Rule Engine)**: If `VITE_GEMINI_API_KEY` is omitted, invalid, or experiencing network latency/quota limits, the service seamlessly falls back to a deterministic rule-based analyzer without throwing errors or breaking the UI. A visual indicator pill (`Gemini Live` or `Demo Heuristic Mode`) displays the active execution mode.
+
+---
+
 ## 🎨 Design System & Ergonomics
 
 - **Dual-Mode High-Contrast Industrial Themes**:
@@ -41,6 +87,7 @@ All accounts share the default development password: `password123`.
 - **Core**: React 19, TypeScript, Vite
 - **Styling**: Tailwind CSS, CSS Custom Properties, Vanilla Design Tokens
 - **Icons**: Lucide React
+- **AI Intelligence**: Google Gemini REST API (`gemini-2.5-flash`), Deterministic Metallurgical Heuristics
 - **State Management**: Zustand (Global session, telemetry, modal states)
 - **Routing**: React Router DOM v6 with route-level `RoleGuard`
 - **Notifications**: Sonner (Toast notifications)
@@ -70,9 +117,10 @@ All accounts share the default development password: `password123`.
    ```bash
    cp .env.example .env
    ```
-   Default `.env`:
+   Add your Google Gemini API key:
    ```env
    VITE_API_URL=http://localhost:8000/api
+   VITE_GEMINI_API_KEY=your_gemini_api_key_here
    ```
 
 4. **Start the local development server with HMR**:
@@ -99,31 +147,34 @@ All accounts share the default development password: `password123`.
 frontend/
 ├── src/
 │   ├── api/
-│   │   └── forgeflowApi.ts         # Centralized API service & typed Axios client
+│   │   ├── forgeflowApi.ts         # Centralized API service & typed Axios client
+│   │   └── forgeAiService.ts       # ForgeAI multi-model & heuristic intelligence service
 │   ├── auth/
 │   │   └── permissions.ts          # RBAC matrix, personas, module access policies
 │   ├── components/
+│   │   ├── ai/
+│   │   │   └── ForgeAiCopilotDrawer.tsx # Slide-over Shopfloor Copilot drawer
 │   │   ├── auth/
 │   │   │   └── RoleGuard.tsx       # Route guard with module clearance validation
 │   │   ├── layout/
 │   │   │   ├── ForgeFlowLayout.tsx # Responsive flex layout shell
-│   │   │   ├── ForgeFlowNavbar.tsx # Top bar with telemetry & role switcher
+│   │   │   ├── ForgeFlowNavbar.tsx # Top bar with Ask ForgeAI trigger & telemetry
 │   │   │   ├── ForgeFlowSidebar.tsx# Desktop sticky sidebar + mobile drawer
-│   │   │   └── ForgeFlowCommandPalette.tsx # Global Ctrl+K command palette
+│   │   │   └── ForgeFlowCommandPalette.tsx # Global Ctrl+K command palette with ForgeAI
 │   │   └── providers/
 │   │       └── ThemeProvider.tsx   # Dual-mode theme context engine
 │   ├── pages/
 │   │   ├── auth/LoginPage.tsx      # Sign-in console with 1-click personas
-│   │   ├── dashboard/OperationsTelemetryView.tsx # Real-time plant telemetry
+│   │   ├── dashboard/OperationsTelemetryView.tsx # Real-time telemetry + ForgeAI Shift Insights
 │   │   ├── orders/WorkOrdersView.tsx             # Work orders & BOM line items
 │   │   ├── stock/InventorySkuView.tsx            # SKU catalog & buffer tracking
 │   │   ├── stock/MovementLedgerView.tsx          # Immutable material movement log
 │   │   ├── masters/CounterpartiesView.tsx        # Commercial client/mill directory
 │   │   ├── payments/SettlementVouchersView.tsx   # Financial UTR cash flow ledger
-│   │   ├── returns/QualityRmaView.tsx            # Discrepancy RMAs & test reports
+│   │   ├── returns/QualityRmaView.tsx            # Discrepancy RMAs & ForgeAI Root-Cause CAPA
 │   │   └── diagnostics/EngineDiagnosticsView.tsx # API contract route suite
 │   ├── store/
-│   │   └── useForgeflowStore.ts    # Zustand store (session, telemetry, modals)
+│   │   └── useForgeflowStore.ts    # Zustand store (session, telemetry, AI drawer, modals)
 │   ├── styles/
 │   │   └── globals.css             # Industrial theme tokens & modal utilities
 │   ├── types/

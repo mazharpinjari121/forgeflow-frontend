@@ -7,19 +7,22 @@ import {
   FileCheck, 
   X, 
   ShieldAlert, 
-  Layers, 
-  Package, 
-  RotateCcw
+  RotateCcw,
+  Sparkles,
+  Check,
+  Cpu,
+  Bot
 } from 'lucide-react';
 import { forgeflowApi } from '../../api/forgeflowApi';
 import type { QualityReturn, SkuItem, TradingEntity, WorkOrder, ReturnReasonCode, QualityActionStatus } from '../../types/forgeflow.types';
+import { analyzeQualityDefect, QualityAnalysisResult } from '../../api/forgeAiService';
 
 export const QualityRmaView: React.FC = () => {
   const [returns, setReturns] = useState<QualityReturn[]>([]);
   const [entities, setEntities] = useState<TradingEntity[]>([]);
   const [skus, setSkus] = useState<SkuItem[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
 
@@ -32,6 +35,16 @@ export const QualityRmaView: React.FC = () => {
   const [reasonCode, setReasonCode] = useState<ReturnReasonCode>('DIMENSIONAL_OUT_OF_TOLERANCE');
   const [findings, setFindings] = useState('');
   const [creditNoteValue, setCreditNoteValue] = useState('');
+
+  // ForgeAI Root-Cause State in Creation Modal
+  const [aiAnalysis, setAiAnalysis] = useState<QualityAnalysisResult | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isApplied, setIsApplied] = useState(false);
+
+  // Existing RMA AI Inspection Modal
+  const [inspectModalRma, setInspectModalRma] = useState<QualityReturn | null>(null);
+  const [inspectAiAnalysis, setInspectAiAnalysis] = useState<QualityAnalysisResult | null>(null);
+  const [inspectIsAnalyzing, setInspectIsAnalyzing] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -80,6 +93,8 @@ export const QualityRmaView: React.FC = () => {
       setQuantityReturned('');
       setFindings('');
       setCreditNoteValue('');
+      setAiAnalysis(null);
+      setIsApplied(false);
       alert(`Discrepancy RMA ${created.rma_number} recorded.`);
     } catch (err) {
       alert('Error creating RMA.');
@@ -94,6 +109,54 @@ export const QualityRmaView: React.FC = () => {
       setReturns(prev => prev.map(r => r.id === id ? updated : r));
     } catch (err) {
       alert('Failed to update status.');
+    }
+  };
+
+  // Run ForgeAI Root Cause Analysis on current form
+  const handleRunAiAnalysis = async () => {
+    setIsAnalyzing(true);
+    setIsApplied(false);
+    const selectedSku = skus.find(s => s.id === Number(skuId));
+    const effectiveDesc = findings.trim() || `Material defect recorded under reason code: ${reasonCode}. Dimensional and metallurgical verification in progress.`;
+
+    try {
+      const result = await analyzeQualityDefect(
+        effectiveDesc,
+        selectedSku?.material_grade || 'IS 2062 Structural Steel',
+        reasonCode
+      );
+      setAiAnalysis(result);
+    } catch (err) {
+      console.error('AI Defect Analysis failed:', err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // Apply CAPA to form findings
+  const handleApplyCapaToForm = () => {
+    if (!aiAnalysis) return;
+    const capaBlock = `\n\n[ForgeAI CAPA Directive - ${aiAnalysis.severity} Severity (${aiAnalysis.confidenceScore}% Conf.)]:\n• Root Cause: ${aiAnalysis.rootCause}\n• Directive: ${aiAnalysis.recommendedCapa}`;
+    setFindings(prev => prev ? prev + capaBlock : capaBlock.trim());
+    setIsApplied(true);
+  };
+
+  // Inspect existing RMA with AI
+  const handleInspectExistingRma = async (rma: QualityReturn) => {
+    setInspectModalRma(rma);
+    setInspectIsAnalyzing(true);
+    setInspectAiAnalysis(null);
+
+    const desc = rma.inspection_findings || `Observed discrepancy under code: ${rma.reason_code}`;
+    const grade = rma.sku?.material_grade || 'IS 2062 E250';
+
+    try {
+      const result = await analyzeQualityDefect(desc, grade, rma.reason_code);
+      setInspectAiAnalysis(result);
+    } catch (err) {
+      console.error('Inspect analysis failed:', err);
+    } finally {
+      setInspectIsAnalyzing(false);
     }
   };
 
@@ -122,8 +185,22 @@ export const QualityRmaView: React.FC = () => {
     }
   };
 
+  const getSeverityBadgeStyle = (sev: string) => {
+    switch (sev) {
+      case 'CRITICAL':
+        return 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30';
+      case 'HIGH':
+        return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30';
+      case 'MEDIUM':
+        return 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/30';
+      default:
+        return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30';
+    }
+  };
+
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* Header View */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
@@ -131,12 +208,16 @@ export const QualityRmaView: React.FC = () => {
             Quality Assurance & Rejection RMA
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Log dimensional deviations, metallurgical test rejections, credit notes, and rework directives.
+            Log dimensional deviations, metallurgical test rejections, credit notes, and execute ForgeAI root cause CAPA directives.
           </p>
         </div>
 
         <button
-          onClick={() => setModalOpen(true)}
+          onClick={() => {
+            setAiAnalysis(null);
+            setIsApplied(false);
+            setModalOpen(true);
+          }}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary hover:brightness-110 text-primary-foreground text-xs font-semibold shadow-xs transition-all active:scale-95"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -301,22 +382,33 @@ export const QualityRmaView: React.FC = () => {
                       {getStatusBadge(r.action_status)}
                     </td>
                     <td className="py-2.5 px-3 text-right">
-                      {r.action_status === 'LOGGED' && (
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => handleUpdateStatus(r.id, 'INSPECTION_PENDING')}
-                          className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 font-mono text-[10px] font-semibold border border-amber-500/30"
+                          onClick={() => handleInspectExistingRma(r)}
+                          title="Run ForgeAI Root-Cause Diagnosis on this record"
+                          className="px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-500/30 flex items-center gap-1 transition-colors"
                         >
-                          Send to Lab
+                          <Sparkles className="w-3 h-3 text-amber-500" />
+                          <span>AI CAPA</span>
                         </button>
-                      )}
-                      {r.action_status === 'INSPECTION_PENDING' && (
-                        <button
-                          onClick={() => handleUpdateStatus(r.id, 'ACCEPTED_CREDITED')}
-                          className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 font-mono text-[10px] font-semibold border border-emerald-500/30"
-                        >
-                          Approve Credit
-                        </button>
-                      )}
+
+                        {r.action_status === 'LOGGED' && (
+                          <button
+                            onClick={() => handleUpdateStatus(r.id, 'INSPECTION_PENDING')}
+                            className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 font-mono text-[10px] font-semibold border border-amber-500/30"
+                          >
+                            Send to Lab
+                          </button>
+                        )}
+                        {r.action_status === 'INSPECTION_PENDING' && (
+                          <button
+                            onClick={() => handleUpdateStatus(r.id, 'ACCEPTED_CREDITED')}
+                            className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 font-mono text-[10px] font-semibold border border-emerald-500/30"
+                          >
+                            Approve Credit
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -343,6 +435,13 @@ export const QualityRmaView: React.FC = () => {
 
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
                     {getStatusBadge(r.action_status)}
+                    <button
+                      onClick={() => handleInspectExistingRma(r)}
+                      className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold border border-amber-500/30 flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>AI CAPA</span>
+                    </button>
                     {r.action_status === 'LOGGED' && (
                       <button
                         onClick={() => handleUpdateStatus(r.id, 'INSPECTION_PENDING')}
@@ -403,7 +502,7 @@ export const QualityRmaView: React.FC = () => {
         </div>
       </div>
 
-      {/* Log Discrepancy Modal */}
+      {/* Log Discrepancy Modal with ForgeAI Root Cause Analyzer */}
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
           <div 
@@ -417,7 +516,7 @@ export const QualityRmaView: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-foreground">Log Discrepancy / RMA Rejection</h3>
-                  <p className="text-[11px] text-muted-foreground">Document metallurgical flaw, off-spec dimensions, or transit damage</p>
+                  <p className="text-[11px] text-muted-foreground">Document metallurgical flaw, off-spec dimensions, or transit damage with ForgeAI</p>
                 </div>
               </div>
               <button 
@@ -532,18 +631,91 @@ export const QualityRmaView: React.FC = () => {
                 </div>
               </div>
 
+              {/* Findings Section with AI Root Cause Button */}
               <div>
-                <label className="block text-xs font-bold text-foreground mb-1.5">
-                  QC Metallurgical / Dimensional Findings
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-foreground">
+                    QC Metallurgical / Dimensional Findings
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRunAiAnalysis}
+                    disabled={isAnalyzing}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500/15 via-primary/15 to-cyan-500/15 hover:from-amber-500/25 hover:via-primary/25 hover:to-cyan-500/25 text-primary border border-amber-500/30 text-[11px] font-mono font-bold transition-all active:scale-95 group shadow-2xs"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 text-amber-500 group-hover:rotate-12 transition-transform ${isAnalyzing ? 'animate-spin' : ''}`} />
+                    <span>{isAnalyzing ? 'Analyzing Defect...' : 'Analyze Root Cause with ForgeAI'}</span>
+                  </button>
+                </div>
                 <textarea
-                  rows={2}
+                  rows={3}
                   placeholder="E.g. Web thickness measured 14.8mm vs specified 16mm (-1.2mm deviation beyond IS tolerance)..."
                   value={findings}
                   onChange={(e) => setFindings(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-muted/60 border border-input rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
+
+              {/* ForgeAI Diagnostic Card */}
+              {aiAnalysis && (
+                <div className="p-4 rounded-xl bg-card border border-amber-500/40 shadow-sm space-y-3 animate-fade-in relative overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-primary to-cyan-500" />
+                  
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center">
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-mono font-bold text-foreground">ForgeAI Diagnostic Card</span>
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${getSeverityBadgeStyle(aiAnalysis.severity)}`}>
+                        {aiAnalysis.severity} SEVERITY
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[10px] font-mono">
+                      <span className="text-muted-foreground font-bold">{aiAnalysis.confidenceScore}% Confidence</span>
+                      <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border">
+                        {aiAnalysis.meta.mode === 'LIVE_AI' ? 'Gemini 2.5 Flash' : 'Heuristic Engine'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
+                        Probable Root Cause:
+                      </span>
+                      <p className="text-foreground leading-relaxed font-sans bg-muted/40 p-2 rounded-lg border border-border/60">
+                        {aiAnalysis.rootCause}
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground block mb-0.5">
+                        Recommended Corrective & Preventive Action (CAPA):
+                      </span>
+                      <p className="text-cyan-700 dark:text-cyan-300 leading-relaxed font-sans bg-cyan-500/10 p-2.5 rounded-lg border border-cyan-500/20 font-medium">
+                        {aiAnalysis.recommendedCapa}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      Latency: {aiAnalysis.meta.latencyMs}ms
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleApplyCapaToForm}
+                      disabled={isApplied}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:brightness-110 disabled:bg-emerald-600 text-primary-foreground text-xs font-semibold shadow-xs transition-all active:scale-95"
+                    >
+                      {isApplied ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                      <span>{isApplied ? 'CAPA Applied to Findings' : 'Apply to RMA Form'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="pt-4 border-t border-border flex justify-end gap-2.5">
                 <button
@@ -561,6 +733,87 @@ export const QualityRmaView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Existing RMA AI Inspection Modal */}
+      {inspectModalRma && (
+        <div className="modal-overlay" onClick={() => setInspectModalRma(null)}>
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="modal-container max-w-xl animate-fade-in"
+          >
+            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                    ForgeAI Root-Cause Diagnosis
+                    <span className="text-amber-500 font-mono text-xs">({inspectModalRma.rma_number})</span>
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">{inspectModalRma.sku?.name} • {inspectModalRma.entity?.legal_name}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setInspectModalRma(null)} 
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 bg-card">
+              {inspectIsAnalyzing ? (
+                <div className="py-10 text-center space-y-2">
+                  <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin mx-auto" />
+                  <p className="text-xs font-mono text-muted-foreground">Synthesizing metallurgical root cause & CAPA...</p>
+                </div>
+              ) : inspectAiAnalysis ? (
+                <div className="space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold border ${getSeverityBadgeStyle(inspectAiAnalysis.severity)}`}>
+                      {inspectAiAnalysis.severity} SEVERITY DEFECT
+                    </span>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Confidence: <strong>{inspectAiAnalysis.confidenceScore}%</strong> • {inspectAiAnalysis.meta.mode === 'LIVE_AI' ? 'Gemini Live' : 'Heuristic Model'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                      Probable Root Cause:
+                    </span>
+                    <p className="text-xs text-foreground bg-muted/40 p-2.5 rounded-xl border border-border/60 leading-relaxed font-sans">
+                      {inspectAiAnalysis.rootCause}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                      Recommended CAPA Directive:
+                    </span>
+                    <p className="text-xs text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 p-2.5 rounded-xl border border-cyan-500/20 leading-relaxed font-sans font-medium">
+                      {inspectAiAnalysis.recommendedCapa}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No analysis available.</p>
+              )}
+
+              <div className="pt-3 border-t border-border flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setInspectModalRma(null)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-secondary hover:bg-muted text-foreground border border-border transition-colors"
+                >
+                  Close Diagnostic
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

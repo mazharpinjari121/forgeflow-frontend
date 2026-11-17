@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { ForgeFlowSidebar } from './ForgeFlowSidebar';
 import { ForgeFlowNavbar } from './ForgeFlowNavbar';
 import { ForgeFlowCommandPalette } from './ForgeFlowCommandPalette';
+import { ForgeAiCopilotDrawer } from '../ai/ForgeAiCopilotDrawer';
 import { useForgeflowStore } from '../../store/useForgeflowStore';
 
 export const ForgeFlowLayout: React.FC = () => {
@@ -54,6 +55,7 @@ export const ForgeFlowLayout: React.FC = () => {
       </div>
 
       <ForgeFlowCommandPalette />
+      <ForgeAiCopilotDrawer />
     </div>
   );
 };

@@ -1,31 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Search, 
-  Layers, 
-  Package, 
-  Building2, 
-  ArrowLeftRight, 
-  AlertTriangle, 
-  CreditCard, 
-  Plus, 
+import {
+  Search,
+  Layers,
+  Package,
+  Building2,
+  ArrowLeftRight,
+  AlertTriangle,
+  CreditCard,
+  Plus,
   X,
   Gauge,
-  Cpu
+  Cpu,
+  Sparkles
 } from 'lucide-react';
 import { useForgeflowStore } from '../../store/useForgeflowStore';
-
 import { canAccessModule, AppModule } from '../../auth/permissions';
 
 export const ForgeFlowCommandPalette: React.FC = () => {
-  const { 
+  const {
     operator,
-    isCommandPaletteOpen, 
+    isCommandPaletteOpen,
     setCommandPalette,
     setNewWorkOrderOpen,
     setLogMovementOpen,
     setNewSkuOpen,
-    setNewEntityOpen
+    setNewEntityOpen,
+    setAiCopilotOpen
   } = useForgeflowStore();
 
   const [query, setQuery] = useState('');
@@ -48,6 +49,15 @@ export const ForgeFlowCommandPalette: React.FC = () => {
   if (!isCommandPaletteOpen) return null;
 
   const allActions = [
+    // AI Intelligence
+    {
+      title: 'Ask ForgeAI Shopfloor Copilot',
+      module: 'dashboard' as AppModule,
+      action: () => { setCommandPalette(false); setAiCopilotOpen(true); },
+      icon: Sparkles,
+      category: 'AI Intelligence'
+    },
+
     { title: 'Operations Telemetry Dashboard', path: '/dashboard', module: 'dashboard' as AppModule, icon: Gauge, category: 'Navigation' },
     { title: 'Work Orders & Batch Runs', path: '/work-orders', module: 'work-orders' as AppModule, icon: Layers, category: 'Navigation' },
     { title: 'Catalog & SKU Stock', path: '/inventory', module: 'inventory' as AppModule, icon: Package, category: 'Navigation' },
@@ -56,51 +66,51 @@ export const ForgeFlowCommandPalette: React.FC = () => {
     { title: 'Settlements & Flow Ledger', path: '/settlements', module: 'settlements' as AppModule, icon: CreditCard, category: 'Navigation' },
     { title: 'Discrepancy & Quality RMA', path: '/quality-returns', module: 'quality-returns' as AppModule, icon: AlertTriangle, category: 'Navigation' },
     { title: 'Platform Engine & API Contracts', path: '/engine-diagnostics', module: 'engine-diagnostics' as AppModule, icon: Cpu, category: 'Navigation' },
-    
+
     // Quick Actions
-    { 
-      title: 'Create New Work Order', 
+    {
+      title: 'Create New Work Order',
       module: 'work-orders' as AppModule,
-      action: () => { setCommandPalette(false); setNewWorkOrderOpen(true); navigate('/work-orders'); }, 
-      icon: Plus, 
-      category: 'Operations Action' 
+      action: () => { setCommandPalette(false); setNewWorkOrderOpen(true); navigate('/work-orders'); },
+      icon: Plus,
+      category: 'Operations Action'
     },
-    { 
-      title: 'Log Material Inward / Movement', 
+    {
+      title: 'Log Material Inward / Movement',
       module: 'inventory' as AppModule,
-      action: () => { setCommandPalette(false); setLogMovementOpen(true); navigate('/inventory'); }, 
-      icon: ArrowLeftRight, 
-      category: 'Operations Action' 
+      action: () => { setCommandPalette(false); setLogMovementOpen(true); navigate('/inventory'); },
+      icon: ArrowLeftRight,
+      category: 'Operations Action'
     },
-    { 
-      title: 'Register New SKU Item', 
+    {
+      title: 'Register New SKU Item',
       module: 'inventory' as AppModule,
-      action: () => { setCommandPalette(false); setNewSkuOpen(true); navigate('/inventory'); }, 
-      icon: Package, 
-      category: 'Operations Action' 
+      action: () => { setCommandPalette(false); setNewSkuOpen(true); navigate('/inventory'); },
+      icon: Package,
+      category: 'Operations Action'
     },
-    { 
-      title: 'Onboard New Trading Counterparty', 
+    {
+      title: 'Onboard New Trading Counterparty',
       module: 'counterparties' as AppModule,
-      action: () => { setCommandPalette(false); setNewEntityOpen(true); navigate('/counterparties'); }, 
-      icon: Building2, 
-      category: 'Operations Action' 
+      action: () => { setCommandPalette(false); setNewEntityOpen(true); navigate('/counterparties'); },
+      icon: Building2,
+      category: 'Operations Action'
     },
   ];
 
   const roleFilteredActions = allActions.filter(a => canAccessModule(operator?.role, a.module));
 
-  const filtered = roleFilteredActions.filter(a => 
-    a.title.toLowerCase().includes(query.toLowerCase()) || 
+  const filtered = roleFilteredActions.filter(a =>
+    a.title.toLowerCase().includes(query.toLowerCase()) ||
     a.category.toLowerCase().includes(query.toLowerCase())
   );
 
   return (
-    <div 
+    <div
       className="modal-overlay items-start pt-6 sm:pt-20 px-3 sm:px-4"
       onClick={() => setCommandPalette(false)}
     >
-      <div 
+      <div
         className="modal-container max-w-xl animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
@@ -109,13 +119,13 @@ export const ForgeFlowCommandPalette: React.FC = () => {
           <Search className="w-4 h-4 text-primary mr-2.5 shrink-0" />
           <input
             type="text"
-            placeholder="Type a command, jump to SKU, Work Order, or Counterparty... (ESC to exit)"
+            placeholder="Type a command, ask ForgeAI, jump to SKU or Work Order... (ESC to exit)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
             className="w-full bg-transparent border-none text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
-          <button 
+          <button
             onClick={() => setCommandPalette(false)}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
@@ -132,6 +142,7 @@ export const ForgeFlowCommandPalette: React.FC = () => {
           ) : (
             filtered.map((item, idx) => {
               const Icon = item.icon;
+              const isAi = item.category === 'AI Intelligence';
               return (
                 <button
                   key={idx}
@@ -143,17 +154,25 @@ export const ForgeFlowCommandPalette: React.FC = () => {
                       setCommandPalette(false);
                     }
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs hover:bg-muted/80 transition-colors group"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs hover:bg-muted/80 transition-colors group ${isAi ? 'bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20' : ''
+                    }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform ${isAi
+                      ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                      : 'bg-primary/10 border border-primary/20 text-primary'
+                      }`}>
                       <Icon className="w-3.5 h-3.5" />
                     </div>
-                    <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                    <span className={`font-semibold group-hover:text-primary transition-colors ${isAi ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-foreground'
+                      }`}>
                       {item.title}
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/80">
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${isAi
+                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold'
+                    : 'bg-muted text-muted-foreground border-border/80'
+                    }`}>
                     {item.category}
                   </span>
                 </button>

@@ -19,6 +19,7 @@ interface ForgeflowState {
   isLogMovementOpen: boolean;
   isNewSettlementOpen: boolean;
   isNewQualityRmaOpen: boolean;
+  isAiCopilotOpen: boolean;
 
   // Actions
   setOperator: (operator: Operator | null, token: string | null) => void;
@@ -32,6 +33,7 @@ interface ForgeflowState {
   setLogMovementOpen: (open: boolean) => void;
   setNewSettlementOpen: (open: boolean) => void;
   setNewQualityRmaOpen: (open: boolean) => void;
+  setAiCopilotOpen: (open: boolean) => void;
 }
 
 // Default initial demo operator
@@ -61,7 +63,7 @@ if (savedOperatorStr && savedToken) {
   }
 }
 
-export const useForgeflowStore = create<ForgeflowState>((set, get) => ({
+export const useForgeflowStore = create<ForgeflowState>((set, _get) => ({
   operator: initialOperator,
   token: initialToken,
   isAuthenticated: initialAuth,
@@ -77,6 +79,7 @@ export const useForgeflowStore = create<ForgeflowState>((set, get) => ({
   isLogMovementOpen: false,
   isNewSettlementOpen: false,
   isNewQualityRmaOpen: false,
+  isAiCopilotOpen: false,
 
   setOperator: (operator, token) => {
     if (operator && token) {
@@ -130,4 +133,5 @@ export const useForgeflowStore = create<ForgeflowState>((set, get) => ({
   setLogMovementOpen: (open) => set({ isLogMovementOpen: open }),
   setNewSettlementOpen: (open) => set({ isNewSettlementOpen: open }),
   setNewQualityRmaOpen: (open) => set({ isNewQualityRmaOpen: open }),
+  setAiCopilotOpen: (open) => set({ isAiCopilotOpen: open }),
 }));
